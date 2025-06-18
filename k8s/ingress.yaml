@@ -1,0 +1,27 @@
+---
+# Source: cartrawler-devops-test-app/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cartrawler-devops-test-app
+  labels:
+    helm.sh/chart: cartrawler-devops-test-app-1.0.0
+    app.kubernetes.io/name: cartrawler-devops-test-app
+    app.kubernetes.io/instance: cartrawler-devops-test-app
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "cartrawler.local"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cartrawler-devops-test-app-service
+                port:
+                  number: 80

@@ -1,0 +1,42 @@
+---
+# Source: cartrawler-devops-test-app/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cartrawler-devops-test-app-deployment
+  labels:
+    app.kubernetes.io/name: cartrawler-devops-test-app
+    app.kubernetes.io/instance: cartrawler-devops-test-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cartrawler-devops-test-app
+      app.kubernetes.io/instance: cartrawler-devops-test-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cartrawler-devops-test-app
+        app.kubernetes.io/instance: cartrawler-devops-test-app
+    spec:
+      containers:
+        - name: cartrawler-devops-test-app
+          image: "ajaykumar4/cartrawler-devops-test-app:1.0.0"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: cartrawler-devops-test-app-config
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            {}

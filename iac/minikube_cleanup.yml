@@ -1,0 +1,23 @@
+- name: Teardown Minikube Environment and Deployed Application
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    local_hostname: "cartrawler.local"
+
+  tasks:
+    - name: Delete the Minikube cluster
+      ansible.builtin.command: minikube delete -p minikube
+      changed_when: true
+      ignore_errors: yes # Ignore if cluster doesn't exist
+
+    - name: Remove local host entry from /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '.*\s+{{ local_hostname }}$'
+        state: absent
+      become: true
+      ignore_errors: yes # Ignore if line is already gone
+
+# Finally, after cleaning up the environment, remove the tools themselves.
+- import_playbook: cleanup_tools.yml

@@ -1,0 +1,49 @@
+- name: Uninstall DevOps Tools (kubectl, helm, minikube)
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  tasks:
+    # -----------------------------------------------------------------------
+    # ---- macOS Uninstallation using Homebrew                         ----
+    # -----------------------------------------------------------------------
+    - name: Ensure tools are uninstalled on macOS
+      # 'state: absent' ensures the packages are removed if they exist.
+      community.general.homebrew:
+        name:
+          - kubectl
+          - helm
+          - minikube
+        state: absent
+      when: ansible_os_family == "Darwin"
+
+    # -----------------------------------------------------------------------
+    # ---- Linux (Debian/Ubuntu) Uninstallation                      ----
+    # -----------------------------------------------------------------------
+    - name: Uninstall apt packages on Linux
+      ansible.builtin.apt:
+        name: ['kubectl', 'helm'] 
+        state: absent
+        purge: yes      # Also removes configuration files
+        autoremove: yes # Also removes unused dependencies
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Remove Minikube binary from Linux
+      ansible.builtin.file:
+        path: "/usr/local/bin/minikube"
+        state: absent
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Remove apt repository configurations on Linux
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        - /etc/apt/sources.list.d/kubernetes.list
+        - /usr/share/keyrings/helm.gpg
+        - /etc/apt/sources.list.d/helm-stable-debian.list
+      become: true
+      when: ansible_os_family == "Debian"

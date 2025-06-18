@@ -1,0 +1,19 @@
+---
+# Source: cartrawler-devops-test-app/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: cartrawler-devops-test-app-service
+  labels:
+    app.kubernetes.io/name: cartrawler-devops-test-app
+    app.kubernetes.io/instance: cartrawler-devops-test-app
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: cartrawler-devops-test-app
+    app.kubernetes.io/instance: cartrawler-devops-test-app
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http

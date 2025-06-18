@@ -1,0 +1,9 @@
+---
+# Source: cartrawler-devops-test-app/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cartrawler-devops-test-app-config
+data:
+  GREETING: "Hello from Helm!"
+  PORT: "80"

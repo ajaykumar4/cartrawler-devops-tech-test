@@ -1,0 +1,48 @@
+# This playbook now uses the QEMU driver for Minikube.
+# Ensure your 'install_tools.yml' playbook installs the 'qemu' hypervisor.
+- import_playbook: install_tools.yml
+
+# Now, with the tools present, set up the Kubernetes environment and deploy the app.
+- name: Provision Minikube Cluster and Deploy Application
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    local_hostname: "cartrawler.local"
+
+  tasks:
+
+    # The tasks for managing a 'podman machine' are no longer needed with the QEMU driver.
+    # We now proceed directly to checking the Minikube cluster status.
+
+    - name: Check if Minikube cluster is already running
+      ansible.builtin.command: minikube status -p minikube
+      register: minikube_status
+      changed_when: false
+      failed_when: false
+
+    - name: Start Minikube cluster and necessary addons
+      # Enabling both ingress and ingress-dns addons.
+      ansible.builtin.command: minikube start --addons=ingress,ingress-dns
+      when: minikube_status.rc != 0
+      
+    - name: Get Minikube IP address for host entry
+      ansible.builtin.command: minikube ip
+      register: minikube_ip_result
+      changed_when: false
+
+    - name: Add local host entry to /etc/hosts for easy access
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '.*\s+{{ local_hostname }}$'
+        line: "{{ minikube_ip_result.stdout }} {{ local_hostname }}"
+        state: present
+      become: true # Requires sudo to edit /etc/hosts
+
+    - name: Display final access instructions
+      ansible.builtin.debug:
+        msg:
+          - "SUCCESS: Your environment is ready!"
+          - "Please ensure your /etc/hosts file was updated correctly (you may have been prompted for a password)."
+          - "The 'ingress-dns' addon is enabled and will attempt to configure your system's DNS."
+          - "Access your application at: http://{{ local_hostname }}"

@@ -1,0 +1,30 @@
+fullnameOverride: cartrawler-devops-test-app
+replicaCount: 1
+
+image:
+  repository: ajaykumar4/cartrawler-devops-test-app
+  pullPolicy: Always
+  # Overridden by Jenkins pipeline with env.BUILD_NUMBER
+  tag: 1.0.0
+
+service:
+  type: NodePort
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hosts:
+    - cartrawler.local    # Replace with your actual host
+  path: /
+  pathType: Prefix
+  rewrite:
+    enabled: true
+    target: /
+
+resources: {}
+
+config:
+  greeting: Hello from Helm!
+  port: 80

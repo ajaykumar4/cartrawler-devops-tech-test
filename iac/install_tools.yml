@@ -1,0 +1,85 @@
+- name: Install DevOps Tools (kubectl, helm, minikube)
+  hosts: localhost
+  connection: local
+  gather_facts: yes # We need facts to determine OS and architecture
+
+  vars:
+    # This maps Ansible's architecture name to the name used in download URLs
+    arch_map:
+      x86_64: "amd64"
+      aarch64: "arm64"
+
+  tasks:
+    # -----------------------------------------------------------------------
+    # ---- macOS Installation using Homebrew (the standard, safe method) ----
+    # -----------------------------------------------------------------------
+    - name: Ensure tools are installed on macOS
+      # The Homebrew module handles idempotency automatically.
+      # It also manages different architectures without extra logic.
+      community.general.homebrew:
+        name:
+          - kubectl
+          - helm
+          - minikube
+        state: present
+      when: ansible_os_family == "Darwin"
+
+    # -----------------------------------------------------------------------
+    # ---- Linux (Debian/Ubuntu) Installation                          ----
+    # -----------------------------------------------------------------------
+    - name: Install prerequisites on Linux
+      ansible.builtin.apt:
+        name: ['curl', 'apt-transport-https', 'ca-certificates', 'gnupg']
+        state: present
+      become: true # 'apt' requires sudo
+      when: ansible_os_family == "Debian"
+
+    - name: Add Kubernetes apt repository key on Linux
+      ansible.builtin.get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key"
+        dest: "/etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+        mode: '0644'
+        force: yes
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Add Kubernetes apt repository on Linux
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /"
+        state: present
+        filename: kubernetes
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Add Helm apt repository key on Linux
+      ansible.builtin.get_url:
+        url: "https://baltocdn.com/helm/signing.asc"
+        dest: "/usr/share/keyrings/helm.gpg"
+        mode: '0644'
+        force: yes
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Add Helm apt repository on Linux
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ ansible_architecture }} signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main"
+        state: present
+        filename: helm-stable-debian
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Install kubectl and helm via apt on Linux
+      ansible.builtin.apt:
+        name: ['kubectl', 'helm'] # Removed podman from this list
+        state: present
+        update_cache: yes
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Install Minikube binary on Linux
+      ansible.builtin.get_url:
+        url: "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-{{ arch_map[ansible_architecture] }}"
+        dest: "/usr/local/bin/minikube"
+        mode: '0755'
+      become: true # Installing to /usr/local/bin requires sudo
+      when: ansible_os_family == "Debian"
