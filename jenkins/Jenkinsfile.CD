@@ -1,0 +1,73 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'ENV', choices: ['dev', 'staging', 'production'], description: 'Deployment Environment')
+        string(name: 'APP_NAME', description: 'Name of the service')
+        string(name: 'APP_VERSION', description: 'Version to deploy (Docker tag)')
+    }
+
+    environment {
+        RELEASE_NAME = "${APP_NAME}"
+        NAMESPACE = "jenkins"
+        CHART_PATH = 'helm-chart/'
+        SLACK_CREDENTIALS_ID = 'slack-webhook-url'
+        AWS_CREDENTIALS_ID = 'aws-credentials-id'
+        AWS_REGION = 'aws-region'
+        AWS_ACCOUNT_ID = 'aws-account-id'
+        AWS_CLUSTER_NAME = 'eks-cluster-name'
+    }
+
+    stages {
+        stage('EKS Login') {
+            steps {
+                script {
+                    echo "Logging into EKS cluster ${AWS_CLUSTER_NAME} in region ${AWS_REGION}"
+                    runEcrLogin(AWS_CREDENTIALS_ID, AWS_REGION, AWS_ACCOUNT_ID)
+                    runEksLogin(AWS_CREDENTIALS_ID, AWS_CLUSTER_NAME, AWS_REGION)
+                }
+            }
+        }
+        stage('Deploy to EKS') {
+            steps {
+                script {
+                    try {
+                        def imageTag = "${APP_VERSION}"
+                        //def imageRepository = "${ecrRegistry}/ajaykumar4/${env.APP_NAME}"
+                        def imageRepository = "docker.io/ajaykumar4/${APP_NAME}"
+
+                        runHelmInstallUpgrade(${RELEASE_NAME}, ${CHART_PATH}, ${NAMESPACE}, ${APP_VERSION}, ${imageRepository})
+                        echo "Deployment to ${NAMESPACE} namespace successful for ${RELEASE_NAME} with version ${imageTag}"
+                    } catch (err) {
+                        currentBuild.result = 'FAILURE'
+                        runHelmRollback(${RELEASE_NAME}, ${NAMESPACE})
+                        error("Deployment failed: ${err}")
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                echo "Deployment to ${params.ENV} successful"
+                sendSlackNotification(SLACK_CREDENTIALS_ID, "SUCCESS: Pipeline '${env.JOB_NAME} #${env.BUILD_NUMBER}' completed successfully. Link: ${env.BUILD_URL}", '#devops-alerts')
+            }
+        }
+
+        failure {
+            script {
+                echo "Deployment failed, attempting rollback..."
+                sendSlackNotification(SLACK_CREDENTIALS_ID, "FAILED: Pipeline '${env.JOB_NAME} #${env.BUILD_NUMBER}' failed. Link: ${env.BUILD_URL}", '#devops-alerts')
+            }
+        }
+
+        aborted {
+            script {
+                echo "Deployment aborted, attempting rollback..."
+                sendSlackNotification(SLACK_CREDENTIALS_ID, "ABORTED: Pipeline '${env.JOB_NAME} #${env.BUILD_NUMBER}' aborted. Link: ${env.BUILD_URL}", '#devops-alerts')
+            }
+        }
+    }
+}

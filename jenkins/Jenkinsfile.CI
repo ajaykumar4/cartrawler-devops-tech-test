@@ -1,0 +1,93 @@
+pipeline {
+    agent any
+
+    environment {
+        // Fallback values if not provided by Jenkins UI/job config
+        AWS_REGION               = 'us-east-1'
+        AWS_ACCOUNT_ID           = 'aws-account-id'
+        AWS_CREDENTIALS_ID       = 'aws-credentials-id'
+        SLACK_CREDENTIALS_ID     = 'slack-webhook-url'
+        APP_NAME                = 'cartrawler-devops-test-app'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Lint & Quality Check') {
+            steps {
+                execKubeconformLint('k8s/')
+                execYamlLint('k8s/')
+                execHelmLint('./helm-chart')
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                dir('app') {
+                    runNpmTest()
+                }
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    def imageTag = "${env.BUILD_NUMBER}"
+                    def ecrRegistry = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com"
+                    //def fullImageName = "${ecrRegistry}/ajaykumar4/${env.APP_NAME}:${imageTag}"
+
+                    //runEcrLogin(env.AWS_CREDENTIALS_ID, env.AWS_REGION, ecrRegistry)
+
+                    def fullImageName = "docker.io/ajaykumar4/${env.APP_NAME}:${imageTag}"
+
+                    dir('app') {
+                        echo "Building Docker image: ${fullImageName}"
+                        sh "docker build -t ${fullImageName} ."
+                        
+                        echo "Pushing Docker image to ECR..." 
+                        sh "docker push ${fullImageName}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Development') {
+            steps {
+                script {
+                    build job('app/cd-job', 
+                        parameters: [
+                            string(name: 'APP_NAME', value: "${env.APP_NAME}"),
+                            string(name: 'APP_VERSION', value: "${env.BUILD_NUMBER}"),
+                            string(name: 'ENV', value: 'dev')
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+            echo 'Pipeline finished.'
+        }
+        success {
+            script {
+                sendSlackNotification(SLACK_CREDENTIALS_ID, "SUCCESS: Pipeline '${env.JOB_NAME} #${env.BUILD_NUMBER}' completed successfully. Link: ${env.BUILD_URL}", '#devops-alerts')
+            }
+        }
+        failure {
+            script {
+                sendSlackNotification(SLACK_CREDENTIALS_ID, "FAILURE: Pipeline '${env.JOB_NAME} #${env.BUILD_NUMBER}' failed. Link: ${env.BUILD_URL}", '#devops-alerts')
+            }
+        }
+        aborted {
+            script {
+                sendSlackNotification(SLACK_CREDENTIALS_ID, "ABORTED: Pipeline '${env.JOB_NAME} #${env.BUILD_NUMBER}' aborted. Link: ${env.BUILD_URL}", '#devops-alerts')
+            }
+    }
+}
