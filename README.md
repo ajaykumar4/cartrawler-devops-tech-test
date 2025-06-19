@@ -128,4 +128,4 @@ terraform apply
 
 ## 📚 Documentation
 
-See [docs/architecture](./docs/architecture) for architecture details.
+See [docs/architecture.md](./docs/architecture.md) for architecture details.
