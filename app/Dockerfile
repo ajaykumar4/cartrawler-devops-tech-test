@@ -8,6 +8,6 @@ RUN npm install
 COPY . .
 
 # The app listens on port 8000
-EXPOSE 80
+EXPOSE 8000
 
 CMD [ "npm", "start" ]
